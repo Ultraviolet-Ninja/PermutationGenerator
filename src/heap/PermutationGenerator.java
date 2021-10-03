@@ -14,13 +14,13 @@ public class PermutationGenerator<E> {
     }
 
     public void heapPermutation(E[] initialArray, Collection<E[]> c) {
-        if (initialArray.length <= PermutationTask.SEQUENTIAL_WORK_THRESHOLD) {
+//        if (initialArray.length <= PermutationTask.SEQUENTIAL_WORK_THRESHOLD) {
             heapPermutation(initialArray, initialArray.length, c);
             return;
-        }
-        ForkJoinPool pool = new ForkJoinPool(2);
-        PermutationTask<E> thread = new PermutationTask<>(initialArray, -1);
-        c.addAll(pool.invoke(thread));
+//        }
+//        ForkJoinPool pool = new ForkJoinPool(2);
+//        PermutationTask<E> thread = new PermutationTask<>(initialArray, -1);
+//        c.addAll(pool.invoke(thread));
     }
 
     private void heapPermutation(E[] array, int size, Collection<E[]> permutationCollection) {
