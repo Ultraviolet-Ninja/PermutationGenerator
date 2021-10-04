@@ -1,7 +1,7 @@
 package heap;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.function.Predicate;
 
 public class PermutationGeneratorMk3<E> {
@@ -11,27 +11,27 @@ public class PermutationGeneratorMk3<E> {
     private Predicate<E[]> condition;
 
     public PermutationGeneratorMk3(E[] array) {
-        if (array.length > ARRAY_SIZE_LIMIT)
-            throw new IllegalArgumentException("Array is too large to compute in a reasonable time");
         this.array = array;
         condition = null;
     }
 
-    public Set<E[]> generateAllPermutations() {
-        Set<E[]> permutations = new HashSet<>();
+    public LinkedList<E[]> generateAllPermutations() {
+        if (array.length > ARRAY_SIZE_LIMIT)
+            throw new IllegalArgumentException("Array is too large to compute");
+        LinkedList<E[]> permutations = new LinkedList<>();
         heapPermutation(permutations, array.length);
         return permutations;
     }
 
-    public Set<E[]> generateConditionalPermutations(Predicate<E[]> condition) {
-        Set<E[]> permutations = new HashSet<>();
+    public LinkedList<E[]> generateConditionalPermutations(Predicate<E[]> condition) {
+        LinkedList<E[]> permutations = new LinkedList<>();
         this.condition = condition;
         heapPermutation(permutations, array.length);
         this.condition = null;
         return permutations;
     }
 
-    private void heapPermutation(Set<E[]> permutationCollection, int size) {
+    private void heapPermutation(List<E[]> permutationCollection, int size) {
         if (areConditionsMet(size)) {
             permutationCollection.add(array.clone());
             return;
@@ -48,10 +48,9 @@ public class PermutationGeneratorMk3<E> {
     }
 
     private boolean areConditionsMet(int size) {
-        if (size == 1) {
-            if (condition == null) return true;
-            return condition.test(array);
+        if (condition != null) {
+            return size == 1 && condition.test(array);
         }
-        return false;
+        return size == 1;
     }
 }
