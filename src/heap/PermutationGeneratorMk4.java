@@ -6,11 +6,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveTask;
 import java.util.function.Predicate;
 
 public class PermutationGeneratorMk4<E> {
-    public static final int FULL_PERMUTATION_ARRAY_SIZE_LIMIT = 12;
+    public static final byte FULL_PERMUTATION_ARRAY_SIZE_LIMIT = 11;
 
     private final E[] elements;
     private Predicate<E[]> condition;
@@ -29,8 +30,11 @@ public class PermutationGeneratorMk4<E> {
     }
 
     public Set<List<E>> generateConditionalPermutations(Predicate<E[]> condition) {
-        if (elements.length >= FULL_PERMUTATION_ARRAY_SIZE_LIMIT) {
-            ForkJoinPool pool = new ForkJoinPool(2);
+        if (checkPredicate(condition))
+            throw new IllegalArgumentException();
+
+        if (elements.length > FULL_PERMUTATION_ARRAY_SIZE_LIMIT) {
+            ForkJoinPool pool = new ForkJoinPool(4);
             ConditionalPermutationTask<E> thread = new ConditionalPermutationTask<>(elements, -1, condition);
             return pool.invoke(thread);
         }
@@ -42,14 +46,14 @@ public class PermutationGeneratorMk4<E> {
         return output;
     }
 
-    private void heapPermutation(Set<List<E>> permutationCollection, int size) {
+    private void heapPermutation(Set<List<E>> permutationSet, int size) {
         if (areConditionsMet(size)) {
-            permutationCollection.add(Arrays.asList(elements.clone()));
+            permutationSet.add(Arrays.asList(elements.clone()));
             return;
         }
 
         for (int i = 0; i < size; i++) {
-            heapPermutation(permutationCollection, size - 1);
+            heapPermutation(permutationSet, size - 1);
             int indexToSwap = size % 2 == 1 ? 0 : i;
 
             E temp = elements[indexToSwap];
@@ -59,15 +63,22 @@ public class PermutationGeneratorMk4<E> {
     }
 
     private boolean areConditionsMet(int size) {
-        if (condition != null) {
-            return size == 1 && condition.test(elements);
-        }
+        if (condition != null) return size == 1 && condition.test(elements);
         return size == 1;
+    }
+
+    private boolean checkPredicate(Predicate<E[]> condition) {
+        try {
+            condition.test(null);
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
     }
 }
 
 class ConditionalPermutationTask<E> extends RecursiveTask<Set<List<E>>> {
-    private static final byte MAX_GUARANTEED_INDICES = 2;
+    private static final byte MAX_GUARANTEED_INDEX = 2;
 
     private final Predicate<E[]> condition;
     private final int guaranteedIndex;
@@ -83,19 +94,18 @@ class ConditionalPermutationTask<E> extends RecursiveTask<Set<List<E>>> {
     protected Set<List<E>> compute() {
         Set<List<E>> output = new HashSet<>();
 
-        if (guaranteedIndex == -1 || guaranteedIndex < MAX_GUARANTEED_INDICES) {
-            int newIndex = guaranteedIndex + 1;
-            List<ConditionalPermutationTask<E>> threadList = new ArrayList<>();
-            for (int i = 0; i < array.length - newIndex; i++) {
-                threadList.add(new ConditionalPermutationTask<>(array.clone(), newIndex, condition));
-                rotateArray(newIndex);
+        int nextIndex = guaranteedIndex + 1;
+        if (nextIndex < MAX_GUARANTEED_INDEX) {
+            List<ConditionalPermutationTask<E>> taskList = new ArrayList<>();
+
+            for (int i = 0; i < array.length - nextIndex; i++) {
+                taskList.add(new ConditionalPermutationTask<>(array.clone(), nextIndex, condition));
+                rotateArray(nextIndex);
             }
             array = null;
 
-            threadList.forEach(thread -> {
-                thread.fork();
-                output.addAll(thread.join());
-            });
+            taskList.forEach(ForkJoinTask::fork);
+            taskList.forEach(task -> output.addAll(task.join()));
             return output;
         }
 
@@ -113,7 +123,7 @@ class ConditionalPermutationTask<E> extends RecursiveTask<Set<List<E>>> {
     private void sequentialHeapGeneration(E[] array, int size, Set<List<E>> set) {
         int startingIndex = 1 + guaranteedIndex;
         if (areConditionsMet(size, startingIndex)) {
-            set.add(Arrays.asList(array));
+            set.add(Arrays.asList(array.clone()));
             return;
         }
 
@@ -128,10 +138,9 @@ class ConditionalPermutationTask<E> extends RecursiveTask<Set<List<E>>> {
     }
 
     private boolean areConditionsMet(int size, int startingIndex) {
-        boolean isSizeOne = size - startingIndex == 1;
-        if (condition != null) {
-            return isSizeOne && condition.test(array);
-        }
-        return isSizeOne;
+        boolean isAPermutation = size - startingIndex == 1;
+
+        if (condition != null) return isAPermutation && condition.test(array);
+        return isAPermutation;
     }
 }
